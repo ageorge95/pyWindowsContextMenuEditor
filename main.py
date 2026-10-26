@@ -214,7 +214,7 @@ class EntryDialog(QDialog):
 class ClassicMenuTab(QWidget):
     """View and edit the classic (registry based) context menu entries."""
 
-    COLUMNS = ('Menu text', 'Type', 'Status', 'Source', 'Command / handler', 'Key name')
+    COLUMNS = ('Menu text', 'Location', 'Type', 'Status', 'Source', 'Command / handler', 'Key name')
 
     def __init__(self, status_callback):
         super().__init__()
@@ -239,6 +239,13 @@ class ClassicMenuTab(QWidget):
         refresh_button.clicked.connect(self.refresh)
         target_row.addWidget(refresh_button)
         target_row.addStretch()
+        target_row.addWidget(QLabel('Search:'))
+        self.search_edit = QLineEdit()
+        self.search_edit.setPlaceholderText('Filter by text, command or key name')
+        self.search_edit.setClearButtonEnabled(True)
+        self.search_edit.setFixedWidth(280)
+        self.search_edit.textChanged.connect(self.apply_filter)
+        target_row.addWidget(self.search_edit)
         layout.addLayout(target_row)
 
         self.tree = QTreeWidget()
@@ -303,14 +310,15 @@ class ClassicMenuTab(QWidget):
 
     def build_item(self, entry, parent):
         item = QTreeWidgetItem(parent, [entry.label,
+                                        entry.location,
                                         entry.kind,
                                         entry.status,
                                         entry.source,
                                         entry.command,
                                         entry.name])
         item.setData(0, Qt.UserRole, entry)
-        item.setToolTip(4, entry.command)
-        item.setToolTip(5, rf'{entry.class_path}\{"shellex" if entry.kind == registry.KIND_SHELLEX else "shell"}'
+        item.setToolTip(5, entry.command)
+        item.setToolTip(6, rf'{entry.class_path}\{"shellex" if entry.kind == registry.KIND_SHELLEX else "shell"}'
                            rf'\{entry.name}')
         if entry.disabled or entry.status != 'Enabled':
             for column in range(len(self.COLUMNS)):
@@ -353,14 +361,35 @@ class ClassicMenuTab(QWidget):
             self.tree.resizeColumnToContents(column)
             self.tree.setColumnWidth(column, min(self.tree.columnWidth(column), 380))
         self.set_status(f'{len(entries)} entries for "{" + ".join(class_paths)}"')
+        self.apply_filter()
         self.update_buttons()
+
+    def apply_filter(self):
+        """Hide rows not matching the search text (a parent stays visible if a child matches)."""
+        text = self.search_edit.text().strip().lower()
+
+        def filter_item(item):
+            child_visible = False
+            for index in range(item.childCount()):
+                child_visible = filter_item(item.child(index)) or child_visible
+            matches = not text or any(text in item.text(column).lower() for column in range(len(self.COLUMNS)))
+            item.setHidden(not (matches or child_visible))
+            return matches or child_visible
+
+        for index in range(self.tree.topLevelItemCount()):
+            filter_item(self.tree.topLevelItem(index))
 
     def update_buttons(self):
         entry = self.selected_entry()
-        has_target = bool(self.current_target() != registry.FILE_EXTENSION_TARGET or self.extension_edit.text())
+        in_submenu = bool(entry and entry.kind == registry.KIND_SUBMENU and entry.user_owned)
+        target = self.current_target()
+        has_target = in_submenu or (target != registry.ALL_LOCATIONS_TARGET
+                                    and (target != registry.FILE_EXTENSION_TARGET or bool(self.extension_edit.text())))
         self.add_button.setEnabled(has_target)
         self.add_submenu_button.setEnabled(has_target)
-        in_submenu = bool(entry and entry.kind == registry.KIND_SUBMENU and entry.user_owned)
+        tooltip = '' if has_target else 'Select a specific "Right-click on" location to add entries'
+        self.add_button.setToolTip(tooltip)
+        self.add_submenu_button.setToolTip(tooltip)
         self.add_button.setText('Add command to submenu' if in_submenu else 'Add command')
         self.add_submenu_button.setText('Add nested submenu' if in_submenu else 'Add submenu')
         self.edit_button.setEnabled(bool(entry and entry.editable))
@@ -374,7 +403,12 @@ class ClassicMenuTab(QWidget):
         except registry.ContextMenuError as error:
             show_error(self, error)
             return
-        dialog = EntryDialog(self, registry.command_placeholder(self.current_target()), is_submenu=is_submenu)
+        entry = self.selected_entry()
+        if entry and entry.kind == registry.KIND_SUBMENU and entry.user_owned:
+            placeholder = registry.command_placeholder(entry.location)
+        else:
+            placeholder = registry.command_placeholder(self.current_target())
+        dialog = EntryDialog(self, placeholder, is_submenu=is_submenu)
         if dialog.exec() != QDialog.Accepted:
             return
         values = dialog.values()
@@ -394,7 +428,7 @@ class ClassicMenuTab(QWidget):
             QMessageBox.information(self, APP_NAME, 'Only user (HKCU) commands and submenus can be edited. '
                                                     'System entries and shell extensions can be disabled instead.')
             return
-        dialog = EntryDialog(self, registry.command_placeholder(self.current_target()), entry=entry)
+        dialog = EntryDialog(self, registry.command_placeholder(entry.location), entry=entry)
         if dialog.exec() != QDialog.Accepted:
             return
         values = dialog.values()

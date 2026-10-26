@@ -25,14 +25,20 @@ BLOCKED_PATH = r'Software\Microsoft\Windows\CurrentVersion\Shell Extensions\Bloc
 CLASSIC_MENU_CLSID = '{86ca1aa0-34aa-4e8b-a509-50c905bae2a2}'
 CLASSIC_MENU_PATH = rf'{CLASSES_PATH}\CLSID\{CLASSIC_MENU_CLSID}'
 
+ALL_LOCATIONS_TARGET = 'All locations'
 FILE_EXTENSION_TARGET = 'Specific file extension'
-TARGETS = {'All files': '*',
+TARGETS = {ALL_LOCATIONS_TARGET: None,
+           'All files': '*',
+           'Files and folders': 'AllFilesystemObjects',
            'Folders': 'Directory',
+           'All folders (incl. special)': 'Folder',
            'Folder background': r'Directory\Background',
+           'Library background': r'LibraryFolder\background',
            'Desktop background': 'DesktopBackground',
            'Drives': 'Drive',
            FILE_EXTENSION_TARGET: None}
-BACKGROUND_TARGETS = ('Folder background', 'Desktop background')
+BACKGROUND_TARGETS = ('Folder background', 'Library background', 'Desktop background')
+LOCATION_NAMES = {class_path: target for target, class_path in TARGETS.items() if class_path}
 
 POSITIONS = ('', 'Top', 'Bottom')
 
@@ -78,6 +84,14 @@ class MenuEntry:
         if self.user_owned:
             return 'User (HKCU)'
         return 'System (HKLM)'
+
+    @property
+    def location(self):
+        """Human readable name of where this entry appears (top level class path)."""
+        if self.class_path.startswith('SystemFileAssociations\\'):
+            return self.class_path.split('\\', 1)[1].split('\\', 1)[0]
+        top_level = self.class_path.split(r'\shell' + '\\', 1)[0]
+        return LOCATION_NAMES.get(top_level, top_level)
 
     @property
     def editable(self):
@@ -221,6 +235,8 @@ def get_class_paths(target, extension=''):
 
     The first path is the one new entries are written to.
     """
+    if target == ALL_LOCATIONS_TARGET:
+        return [class_path for class_path in TARGETS.values() if class_path]
     if target != FILE_EXTENSION_TARGET:
         return [TARGETS[target]]
 

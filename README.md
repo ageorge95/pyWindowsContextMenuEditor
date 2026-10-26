@@ -10,8 +10,11 @@ never needed.
 
 ### Classic context menu tab
 
-- Choose what is right-clicked: all files, folders, folder background, desktop
-  background, drives, or a specific file extension (e.g. `.txt`).
+- Choose what is right-clicked: all files, files and folders, folders, all
+  folders (incl. special), folder / library / desktop background, drives, or a
+  specific file extension (e.g. `.txt`). `All locations` (default) shows
+  everything at once, with a `Location` column.
+- Search box to filter by menu text, command or key name.
 - Lists commands, submenus (with their items) and COM shell extensions
   (7-Zip, TortoiseGit, ...) from both HKCU and HKLM.
 - **Add** commands and submenus (also items inside your own submenus).
