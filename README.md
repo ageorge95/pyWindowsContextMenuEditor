@@ -1,18 +1,48 @@
-# ag95_repo_base
+# pyWindowsContextMenuEditor
 
-Base skeleton for my Python GUI repositories. It contains the common files I
-copy into a new project, plus the generic install/update scripts.
+PySide6 GUI to view and edit the Windows Explorer right-click (context) menu.
+Built from the [ag95_repo_base](https://github.com/ageorge95/ag95_repo_base) templates.
 
-Each text file starts with a `VERSION=` line and the template repository URL.
-Keep these lines when copying files, so you can see which template version was
-used.
+All changes are written to `HKEY_CURRENT_USER`, so administrator rights are
+never needed.
 
-## What is included
+## Features
+
+### Classic context menu tab
+
+- Choose what is right-clicked: all files, folders, folder background, desktop
+  background, drives, or a specific file extension (e.g. `.txt`).
+- Lists commands, submenus (with their items) and COM shell extensions
+  (7-Zip, TortoiseGit, ...) from both HKCU and HKLM.
+- **Add** commands and submenus (also items inside your own submenus).
+- **Edit** your own entries: menu text, key name, command, icon, position
+  (top/bottom), Shift-only (`Extended`) and disabled state.
+- **Disable / Enable** any entry, including system ones, for the current user:
+  - commands: `LegacyDisable` value in a HKCU override key
+  - shell extensions: the HKCU `Shell Extensions\Blocked` list
+- **Delete** your own (HKCU) entries. A `.reg` backup is always exported to the
+  `backups` folder first; use **Restore backup...** to import it again.
+
+Use `%1` in commands for the clicked file/folder and `%V` for the folder of a
+background click.
+
+### Windows 11 menu tab
+
+- Toggle the full (classic) menu so "Show more options" is skipped.
+- Lists the entries packaged (MSIX / sparse) apps add to the new Windows 11
+  menu (Notepad++, Terminal, Photos, ...) and lets you hide / show them for the
+  current user. These entries cannot be created or deleted, they come from the
+  apps' manifests.
+
+Use **Restart Explorer** (status bar) if a change is not visible immediately.
+
+## Files
 
 | File | Purpose |
 | --- | --- |
-| `main.py` | Minimal PySide6 GUI entry point |
-| `icon.ico` | Multi-size application/taskbar icon |
+| `main.py` | PySide6 GUI |
+| `context_menu_registry.py` | Registry backend (read / write / backup) |
+| `icon.ico` | Application/taskbar icon |
 | `version.txt` | Version shown in the window title |
 | `requirements.txt` | Python dependencies |
 | `main.spec` | PyInstaller one-folder build definition |
@@ -20,20 +50,10 @@ used.
 | `START.bat` | Runs the app from the local virtual environment |
 | `_install_templates/` | Generic install/update scripts (PowerShell and Bash) |
 
-Package indexes used by the install/update scripts are configured in
-`_install_templates/pip.ini`.
+## Usage
 
-## Using this repo as a starting point
-
-1. Create a new repository from this one (or copy the files).
-2. Rename the app in `main.py` (`APP_NAME` and `APP_ID`) and, if needed, in `main.spec`.
-3. Install the environment:
-   - Windows: `powershell -ExecutionPolicy Bypass -File _install_templates\install.ps1`
-   - Linux/macOS: `./_install_templates/install.sh`
-4. Start the app with `START.bat` (Windows) or `python main.py`.
-5. Update the environment later with `_install_templates\update.ps1` or
-   `_install_templates/update.sh`.
-6. Build a release with `BUILD_release.bat`; the output goes to `dist\main\`.
-
-The install scripts work from the repository root or from a folder called
-`_install` or `_install_templates`.
+1. Install the environment:
+   `powershell -ExecutionPolicy Bypass -File _install_templates\install.ps1`
+2. Start the app with `START.bat` (or `python main.py`).
+3. Update the environment later with `_install_templates\update.ps1`.
+4. Build a release with `BUILD_release.bat`; the output goes to `dist\main\`.
